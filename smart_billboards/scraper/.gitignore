@@ -1,0 +1,7 @@
+scraper
+go.sum
+go.mod
+
+.env
+.env.local
+.env*
