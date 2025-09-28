@@ -1,19 +1,11 @@
-"""
-Equal-weight S&P 500 Index Fund.
-
-This class implements logic for an equal-weight S&P 500 index fund,
-which is different from the market-cap weighted SPY ETF.
-"""
-
 import logging
 import requests
 import pandas as pd
+import numpy as np
 from secrets import IEX_CLOUD_API_KEY  # Secure API key management
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 
 class EqualWeightSPY:
     """Equal-weight S&P 500 index fund."""
@@ -28,13 +20,7 @@ class EqualWeightSPY:
 
     @classmethod
     def from_file(cls, path: str, file_type: str = "csv") -> "EqualWeightSPY":
-        """
-        Alternative constructor to create instance from CSV or Excel file.
-
-        Args:
-            path: Path to the file.
-            file_type: File type - 'csv' or 'excel'.
-        """
+        """Alternative constructor to create instance from CSV or Excel file."""
         instance = cls()
         if file_type.lower() == "csv":
             instance.load_csv(path)
@@ -87,12 +73,7 @@ class EqualWeightSPY:
         return self.df
 
     def append_data_to_df(self, data: dict) -> None:
-        """
-        Append a row of stock data to the DataFrame.
-
-        Args:
-            data: Dict with keys matching DataFrame columns.
-        """
+        """Append a row of stock data to the DataFrame."""
         if self.df is None:
             self.create_initial_dataframe()
         series = pd.Series(data)
@@ -119,49 +100,58 @@ class EqualWeightSPY:
                 logger.warning(f"No data found for stock: {stock}")
 
     def batch_load_data_all_stocks_list(self) -> None:
-        """Load all stocks data in batch from API using batch endpoint."""
+        """Load all stocks data in batch from API using batch endpoint in chunks of 100 symbols."""
         if self.stocks is None or "Ticker" not in self.stocks:
             raise ValueError("Stocks list is not defined or does not include 'Ticker' column.")
 
-        symbols = ",".join(self.stocks["Ticker"].tolist())
-        url = (
-            f"https://sandbox.iexapis.com/stable/stock/market/batch?"
-            f"symbols={symbols}&types=quote&token={IEX_CLOUD_API_KEY}"
-        )
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-            batch_data = response.json()
-        except requests.RequestException as e:
-            logger.error(f"Batch API call failed: {e}")
-            return
-
         self.create_initial_dataframe()
-        for symbol, data in batch_data.items():
-            quote = data.get("quote", {})
-            self.append_data_to_df(
-                {
-                    "Ticker": symbol,
-                    "Stock_price": quote.get("latestPrice", 0.0),
-                    "Market_cap": quote.get("marketCap", 0.0),
-                    "Number_of_shares_to_buy": "N/A",
-                }
+        for symbols_chunk in self.chunks(self.stocks["Ticker"].tolist(), 100):
+            symbols = ",".join(symbols_chunk)
+            url = (
+                f"https://sandbox.iexapis.com/stable/stock/market/batch?"
+                f"symbols={symbols}&types=quote&token={IEX_CLOUD_API_KEY}"
             )
+            try:
+                response = requests.get(url)
+                response.raise_for_status()
+                batch_data = response.json()
+            except requests.RequestException as e:
+                logger.error(f"Batch API call failed: {e}")
+                continue  # continue with next batch
+
+            for symbol, data in batch_data.items():
+                quote = data.get("quote", {})
+                self.append_data_to_df(
+                    {
+                        "Ticker": symbol,
+                        "Stock_price": quote.get("latestPrice", 0.0),
+                        "Market_cap": quote.get("marketCap", 0.0),
+                        "Number_of_shares_to_buy": "N/A",
+                    }
+                )
 
     def calculate_shares_to_buy(self, total_portfolio_value: float) -> None:
-        """
-        Calculate the number of shares to buy for each stock to maintain equal weighting.
-
-        Args:
-            total_portfolio_value: The total value of the portfolio available for investment.
-        """
+        """Calculate the number of shares to buy for each stock to maintain equal weighting."""
         if self.df is None or self.df.empty:
             raise ValueError("DataFrame is empty. Load stock data before calculating shares.")
 
         equal_weight_value = total_portfolio_value / len(self.df)
-        self.df["Number_of_shares_to_buy"] = (
+        self.df["Number_of_shares_to_buy"] = np.floor(
             equal_weight_value / self.df["Stock_price"]
-        ).apply(int)
+        ).astype(int)
+
+    def save_df_to_excel(self, file_path: str) -> None:
+        """Save the current DataFrame to an Excel file with formatting."""
+        if self.df is None or self.df.empty:
+            raise ValueError("DataFrame is empty. Load data before saving to Excel.")
+
+        sheet_name = "Recommended Trades"
+        with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
+            self.df.to_excel(writer, sheet_name=sheet_name, index=False)
+            self.format_scheme_for_excel_file(writer, sheet_name)
+            writer.save()
+
+        logger.info(f"DataFrame successfully saved to Excel file: {file_path}")
 
     @staticmethod
     def chunks(lst: list, n: int):
@@ -169,4 +159,43 @@ class EqualWeightSPY:
         for i in range(0, len(lst), n):
             yield lst[i : i + n]
 
-#57:57
+    def format_scheme_for_excel_file(self, writer, sheet_name: str = "Recommended Trades") -> None:
+        """Apply format scheme to the specified sheet in the ExcelWriter."""
+
+        background_colour = "#0a0a23"
+        font_colour = "#ffffff"
+
+        workbook = writer.book
+        worksheet = writer.sheets[sheet_name]
+
+        string_format = workbook.add_format({
+            "font_color": font_colour,
+            "bg_color": background_colour,
+            "border": 1
+        })
+        currency_format = workbook.add_format({
+            "num_format": "KES 0.00",
+            "font_color": font_colour,
+            "bg_color": background_colour,
+            "border": 1
+        })
+        integer_format = workbook.add_format({
+            "num_format": "0",
+            "font_color": font_colour,
+            "bg_color": background_colour,
+            "border": 1
+        })
+
+        col_formats = {
+            "A": ["Ticker", string_format],
+            "B": ["Stock_price", currency_format],
+            "C": ["Market_cap", currency_format],
+            "D": ["Number_of_shares_to_buy", integer_format]
+        }
+
+        # Format headers and columns
+        for col, (header, fmt) in col_formats.items():
+            worksheet.write(f"{col}1", header, fmt)  # Header formatting (row 1)
+            worksheet.set_column(f"{col}:{col}", 18, fmt)  # Column formatting
+
+# 1:38:36
