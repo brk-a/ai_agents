@@ -48,6 +48,7 @@ class QuantitativeValueMomentumScreener:
         pass
 
     def load_stocks_list(self, path_to_file: str) -> None:
+        """ load stocks list from csv file """
         self.stocks = pd.read_csv(path_to_file)
 
     def load_csv(self):
@@ -57,6 +58,7 @@ class QuantitativeValueMomentumScreener:
         pass
 
     def to_excel(self):
+        """ export sata to excel file """
         pass
 
 #1:43:34
