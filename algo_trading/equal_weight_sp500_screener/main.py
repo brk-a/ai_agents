@@ -162,6 +162,8 @@ class EqualWeightSPY:
     def format_scheme_for_excel_file(self, writer, sheet_name: str = "Recommended Trades") -> None:
         """Apply format scheme to the specified sheet in the ExcelWriter."""
 
+        # writer = pd.ExcelWriter(f"{sheet_name}.xlsx", engine="xlsxwriter")
+
         background_colour = "#0a0a23"
         font_colour = "#ffffff"
 
@@ -197,5 +199,3 @@ class EqualWeightSPY:
         for col, (header, fmt) in col_formats.items():
             worksheet.write(f"{col}1", header, fmt)  # Header formatting (row 1)
             worksheet.set_column(f"{col}:{col}", 18, fmt)  # Column formatting
-
-# 1:38:36
