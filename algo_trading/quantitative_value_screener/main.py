@@ -6,7 +6,8 @@ a value investing perspective
 then calculate recommended trades for an
 equal-weight portfolio of said stocks
 """
-#2:54:37
+
+# 3:03:18
 
 import math
 from statistics import mean
@@ -24,6 +25,7 @@ class QuantitativeValueScreener:
     def __init__(self):
         self.df = None
         self.stocks = None
+        self.columns= None
 
     def __str__(self):
         pass
@@ -43,8 +45,13 @@ class QuantitativeValueScreener:
             raise ValueError("Unsupported file_type. Use 'csv' or 'excel'.")
         return instance
 
+    def load_data_from_api(self):
+        """ load stock(s) data from API. this is what we will analyse in the screeners that follow """
+        data = requests.get(f"{BASE_URL}/{ticker}/quote?token={IEX_CLOUD_API_KEY}").json()
+
+
     def single_metric_value_screener(self):
-        """ determine which stocks to buy based on one metric """
+        """ determine which stocks to buy based on one metric: PE ratio """
         pass
 
     def composite_metric_value_screener(self):
