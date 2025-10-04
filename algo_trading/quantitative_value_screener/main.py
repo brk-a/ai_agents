@@ -7,7 +7,7 @@ then calculate recommended trades for an
 equal-weight portfolio of said stocks
 """
 
-# 3:03:18
+# 3:07:11
 
 import math
 from statistics import mean
@@ -25,7 +25,7 @@ class QuantitativeValueScreener:
     def __init__(self):
         self.df = None
         self.stocks = None
-        self.columns= None
+        self.columns = None
 
     def __str__(self):
         pass
@@ -47,8 +47,31 @@ class QuantitativeValueScreener:
 
     def load_data_from_api(self):
         """ load stock(s) data from API. this is what we will analyse in the screeners that follow """
-        data = requests.get(f"{BASE_URL}/{ticker}/quote?token={IEX_CLOUD_API_KEY}").json()
-
+        if self.df.empty:
+            self.create_initial_dataframe()
+        
+        ticker_groups = list(chunks(self.stocks, 100))
+        ticker_strings = []
+        for i in range(0, len(ticker_groups)):
+            ticker_strings.append(",".join(ticker_groups[i]))
+        
+        for ticker_group in ticker_groups:
+            data = requests.get(f"{BASE_URL}/{ticker_group}/quote?token={IEX_CLOUD_API_KEY}").json()
+            for ticker in ticker_group:
+                try:
+                    price = data[ticker]["price"]
+                    pe_ratio = data[ticker]["peRatio"]
+                except KeyError:
+                    price = np.nan
+                    pe_ratio = np.nan
+                
+                row = {
+                    "Ticker": ticker,
+                    "Price": price,
+                    "PE_ratio": pe_ratio,
+                    "Number_of_stocks_to_buy": "N/A"
+                }
+                self.df = self.df.append(row, ignore_index=True)
 
     def single_metric_value_screener(self):
         """ determine which stocks to buy based on one metric: PE ratio """
