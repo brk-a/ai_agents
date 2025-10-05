@@ -119,7 +119,7 @@ class QuantitativeValueScreener:
 
     def single_metric_remove_glamour_stocks(self) -> pd.DataFrame:
         """ determine which stocks to buy based on one metric: PE ratio """
-        if not self.df or len self.df == 0:
+        if not self.df or len(self.df) == 0:
             raise ValueError("data is not available")
 
         # sort on PE ratio in ascending order
