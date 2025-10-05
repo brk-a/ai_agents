@@ -7,7 +7,7 @@ then calculate recommended trades for an
 equal-weight portfolio of said stocks
 """
 
-# 3:07:11
+# 3:39:38
 
 import math
 from statistics import mean
@@ -42,10 +42,10 @@ class QuantitativeValueScreener:
         elif file_type.lower() == "excel":
             instance.load_excel(path)
         else:
-            raise ValueError("Unsupported file_type. Use 'csv' or 'excel'.")
+            raise ValueError("Unsupported file type. Use 'csv' or 'excel'.")
         return instance
 
-    def load_data_from_api(self):
+    def single_metric_load_data_from_api(self):
         """ load stock(s) data from API. this is what we will analyse in the screeners that follow """
         if self.df.empty:
             self.create_initial_dataframe()
@@ -59,8 +59,8 @@ class QuantitativeValueScreener:
             data = requests.get(f"{BASE_URL}/{ticker_group}/quote?token={IEX_CLOUD_API_KEY}").json()
             for ticker in ticker_group:
                 try:
-                    price = data[ticker]["price"]
-                    pe_ratio = data[ticker]["peRatio"]
+                    price = data[ticker]["quote"]["latestPrice"]
+                    pe_ratio = data[ticker]["quote"]["peRatio"]
                 except KeyError:
                     price = np.nan
                     pe_ratio = np.nan
@@ -72,14 +72,90 @@ class QuantitativeValueScreener:
                     "Number_of_stocks_to_buy": "N/A"
                 }
                 self.df = self.df.append(row, ignore_index=True)
+    
+    def composite_metric_load_data_from_api(self):
+        """ load stock(s) data from API. this is what we will analyse in the screeners that follow """
+        if self.df.empty:
+            self.create_initial_dataframe()
+        
+        ticker_groups = list(chunks(self.stocks, 100))
+        ticker_strings = []
+        for i in range(0, len(ticker_groups)):
+            ticker_strings.append(",".join(ticker_groups[i]))
+        
+        for ticker_group in ticker_groups:
+            url = f"{BASE_URL}/{ticker_group}/quote,advanced-stats?token={IEX_CLOUD_API_KEY}"
+            data = requests.get(url).json
+            for ticker in ticker_group:
+                try:
+                    price = data[ticker]["quote"]["latestPrice"]
+                    pe_ratio = data[ticker]["quote"]["peRatio"]
+                    pb_ratio = data[ticker]["advanced-stats"]["priceToBook"]
+                    ps_ratio = data[ticker]["advanced-stats"]["priceToSales"]
+                    enterprise_value = data[ticker]["advanced-stats"]["enterpriseValue"]
+                    ebitda = data[ticker]["advanced-stats"]["EBITDA"]
+                    gross_profit = data[ticker]["advanced-stats"]["grossProfit"]
+                    ev_ebitda_ratio = enterprise_value / ebitda
+                    ev_gp_ratio = enterprise_value / gross_profit
+                except KeyError:
+                    price = np.nan
+                    pe_ratio = np.nan
+                    pb_ratio = np.nan
+                    ps_ratio = np.nan
+                    ev_ebitda_ratio = np.nan
+                    ev_gp_ratio = np.nan
+                
+                row = {
+                    "Ticker": ticker,
+                    "Price": price,
+                    "PE_ratio": pe_ratio,
+                    "PB_ratio": pb_ratio,
+                    "PS_ratio": ps_ratio,
+                    "EV_Ebitda_ratio": ev_ebitda_ratio,
+                    "EV_GP_ratio": ev_gp_ratio,
+                    "Number_of_stocks_to_buy": "N/A"
+                }
+                self.df = self.df.append(row, ignore_index=True)
 
-    def single_metric_value_screener(self):
+    def single_metric_remove_glamour_stocks(self) -> pd.DataFrame:
         """ determine which stocks to buy based on one metric: PE ratio """
-        pass
+        if not self.df or len self.df == 0:
+            raise ValueError("data is not available")
 
-    def composite_metric_value_screener(self):
-        """ determine which stocks to buy based on a number of meterics """
-        pass
+        # sort on PE ratio in ascending order
+        self.df.sort_values("PE_ratio", ascending = True, inplace = True)
+
+        # remove stocks with negative PE ratio
+        self.df = self.df[self.df["PE_ratio"] > 0]
+
+        # reset indices
+        self.df.reset_index(inplace = True)
+        self.df.drop("index", axis= 1, inplace=True)
+
+        # get the top 50 highest PE ratio  entries
+        self.df = self.df[:50]
+
+        return self.df
+
+    def composite_metric_remove_glamour_stocks(self) -> pd.DataFrame:
+        """ determine which stocks to buy based on a number of metrics: PE ratio, PB ratio, PS ratio, EV/EBITDA and EV/gross profit """
+        if not self.df or len self.df == 0:
+            raise ValueError("data is not available")
+
+        # sort on PE ratio in ascending order
+        self.df.sort_values("PE_ratio", ascending = True, inplace = True)
+
+        # remove stocks with negative PE ratio
+        self.df = self.df[self.df["PE_ratio"] > 0]
+
+        # reset indices
+        self.df.reset_index(inplace = True)
+        self.df.drop("index", axis= 1, inplace=True)
+
+        # get the top 50 highest PE ratio  entries
+        self.df = self.df[:50]
+
+        return self.df
 
     @staticmethod
     def chunks(arr: list, n: int):
@@ -105,7 +181,7 @@ class QuantitativeValueScreener:
     def calculate_number_of_shares_to_buy(self) -> pd.DataFrame:
         """Calculate number of shares to buy for an equal-weight portfolio."""
         portfolio_size = self.portfolio_input()
-        top_stocks_df = self.more_practical_remove_low_momentum_stocks()
+        top_stocks_df = self.composite_metric_remove_glamour_stocks()
         position_size = portfolio_size / len(top_stocks_df)
 
         top_stocks_df["Number_of_shares_to_buy"] = top_stocks_df["Price"].apply(
