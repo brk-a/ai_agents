@@ -56,7 +56,7 @@
 ## WTF is the S&P 500?
 * world's most popular stock index
     - standard and poor's 500: represents the performance of the 500 most valuable companies listed in the US
-    - many investment funds are benchmarked to the S&P 500; they seek to, at the veryleast, replicate the performance of this index
+    - many investment funds are benchmarked to the S&P 500; they seek to, at the very least, replicate the performance of this index
 * it is market-cap-weighted
     - the proportion/weight of a stock in the index is proportional to the company's market capitalisation
     - larger companies have a more outsized influence on the index (another way of saying this is: market cap is directly proportional to weight)
@@ -69,7 +69,7 @@
 ## WTF is value investing?
 * investing in stocks that trade below their perceived intrinsic value
     - buying a shilling for 75 cents with the hope of selling it for a shilling
-* popularised by Ben Graham, Warren Buffett ans Seth Klarman
+* popularised by Ben Graham, Warren Buffett and Seth Klarman
 * algo value trading strategies rely on the concept of **multiples**
 * **WTF are multiples?**
      - glad you asked...
