@@ -111,7 +111,7 @@ class QuantitativeValueScreener:
                     "PE_ratio": pe_ratio,
                     "PB_ratio": pb_ratio,
                     "PS_ratio": ps_ratio,
-                    "EV_Ebitda_ratio": ev_ebitda_ratio,
+                    "EV_EBITDA_ratio": ev_ebitda_ratio,
                     "EV_GP_ratio": ev_gp_ratio,
                     "Number_of_stocks_to_buy": "N/A"
                 }
