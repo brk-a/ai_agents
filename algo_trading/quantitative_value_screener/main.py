@@ -57,7 +57,7 @@ class QuantitativeValueScreener:
         
         for ticker_group in ticker_groups:
             data = requests.get(f"{BASE_URL}/{ticker_group}/quote?token={IEX_CLOUD_API_KEY}").json()
-            for ticker in ticker_group:
+            for ticker in ticker_group.split(","):
                 try:
                     price = data[ticker]["quote"]["latestPrice"]
                     pe_ratio = data[ticker]["quote"]["peRatio"]
@@ -85,8 +85,8 @@ class QuantitativeValueScreener:
         
         for ticker_group in ticker_groups:
             url = f"{BASE_URL}/{ticker_group}/quote,advanced-stats?token={IEX_CLOUD_API_KEY}"
-            data = requests.get(url).json
-            for ticker in ticker_group:
+            data = requests.get(url).json()
+            for ticker in ticker_group.split(","):
                 try:
                     price = data[ticker]["quote"]["latestPrice"]
                     pe_ratio = data[ticker]["quote"]["peRatio"]
@@ -95,13 +95,14 @@ class QuantitativeValueScreener:
                     enterprise_value = data[ticker]["advanced-stats"]["enterpriseValue"]
                     ebitda = data[ticker]["advanced-stats"]["EBITDA"]
                     gross_profit = data[ticker]["advanced-stats"]["grossProfit"]
-                    ev_ebitda_ratio = enterprise_value / ebitda
-                    ev_gp_ratio = enterprise_value / gross_profit
+                    ev_ebitda_ratio = float(enterprise_value) / float(ebitda)
+                    ev_gp_ratio = float(enterprise_value) / float(gross_profit)
                 except KeyError:
                     price = np.nan
                     pe_ratio = np.nan
                     pb_ratio = np.nan
                     ps_ratio = np.nan
+                except TypeError:
                     ev_ebitda_ratio = np.nan
                     ev_gp_ratio = np.nan
                 
@@ -109,10 +110,16 @@ class QuantitativeValueScreener:
                     "Ticker": ticker,
                     "Price": price,
                     "PE_ratio": pe_ratio,
+                    "PE_percentile": "N/A",
                     "PB_ratio": pb_ratio,
+                    "PB_percentile": "N/A",
                     "PS_ratio": ps_ratio,
+                    "PS_percentile": "N/A",
                     "EV_EBITDA_ratio": ev_ebitda_ratio,
+                    "EV_EBITDA_percentile": "N/A",
                     "EV_GP_ratio": ev_gp_ratio,
+                    "EV_GP_percentile": "N/A",
+                    "Robust_value_score": "N/A",
                     "Number_of_stocks_to_buy": "N/A"
                 }
                 self.df = self.df.append(row, ignore_index=True)
@@ -139,8 +146,17 @@ class QuantitativeValueScreener:
 
     def composite_metric_remove_glamour_stocks(self) -> pd.DataFrame:
         """ determine which stocks to buy based on a number of metrics: PE ratio, PB ratio, PS ratio, EV/EBITDA and EV/gross profit """
-        if not self.df or len self.df == 0:
+        if not self.df or len(self.df) == 0:
             raise ValueError("data is not available")
+
+        # deal with NaN
+        # remove NaN values if the rows containing NaN as a percentage
+        # of the total are 5% or less, else, impute the dataset 
+        percent_na = len(self.df[self.df.isnull().any(axis=1)].index) / len(self.df.index)
+        if percent_na <= 0.05:
+            self.df = self.df.dropna(axis=1, inplace=True)
+        else: #implement mean imputation
+            pass
 
         # sort on PE ratio in ascending order
         self.df.sort_values("PE_ratio", ascending = True, inplace = True)
