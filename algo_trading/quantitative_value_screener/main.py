@@ -7,31 +7,29 @@ then calculate recommended trades for an
 equal-weight portfolio of said stocks
 """
 
-# 3:39:38
-
 import math
-from statistics import mean
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 import requests
-from scipy import stats
 
 from secrets import IEX_CLOUD_API_KEY, BASE_URL
 
 
 class QuantitativeValueScreener:
-    """ Quantitative value screener """
-    def __init__(self):
-        self.df = None
-        self.stocks = None
-        self.columns = None
+    """Quantitative value screener to build a value-investing portfolio."""
 
-    def __str__(self):
-        pass
+    def __init__(self, stocks: Optional[List[str]] = None):
+        self.df: Optional[pd.DataFrame] = None
+        self.stocks = stocks or []
 
-    def __repr__(self):
-        pass
+    def __str__(self) -> str:
+        return f"QuantitativeValueScreener with {len(self.stocks)} stocks."
+
+    def __repr__(self) -> str:
+        rows = len(self.df) if self.df is not None else 0
+        return f"<QuantitativeValueScreener stocks={len(self.stocks)} rows={rows}>"
 
     @classmethod
     def from_file(cls, path: str, file_type: str = "csv") -> "QuantitativeValueScreener":
@@ -45,146 +43,164 @@ class QuantitativeValueScreener:
             raise ValueError("Unsupported file type. Use 'csv' or 'excel'.")
         return instance
 
-    def single_metric_load_data_from_api(self):
-        """ load stock(s) data from API. this is what we will analyse in the screeners that follow """
-        if self.df.empty:
-            self.create_initial_dataframe()
-        
-        ticker_groups = list(chunks(self.stocks, 100))
-        ticker_strings = []
-        for i in range(0, len(ticker_groups)):
-            ticker_strings.append(",".join(ticker_groups[i]))
-        
-        for ticker_group in ticker_groups:
-            data = requests.get(f"{BASE_URL}/{ticker_group}/quote?token={IEX_CLOUD_API_KEY}").json()
-            for ticker in ticker_group.split(","):
-                try:
-                    price = data[ticker]["quote"]["latestPrice"]
-                    pe_ratio = data[ticker]["quote"]["peRatio"]
-                except KeyError:
-                    price = np.nan
-                    pe_ratio = np.nan
-                
-                row = {
-                    "Ticker": ticker,
-                    "Price": price,
-                    "PE_ratio": pe_ratio,
-                    "Number_of_stocks_to_buy": "N/A"
-                }
-                self.df = self.df.append(row, ignore_index=True)
-    
-    def composite_metric_load_data_from_api(self):
-        """ load stock(s) data from API. this is what we will analyse in the screeners that follow """
-        if self.df.empty:
-            self.create_initial_dataframe()
-        
-        ticker_groups = list(chunks(self.stocks, 100))
-        ticker_strings = []
-        for i in range(0, len(ticker_groups)):
-            ticker_strings.append(",".join(ticker_groups[i]))
-        
-        for ticker_group in ticker_groups:
-            url = f"{BASE_URL}/{ticker_group}/quote,advanced-stats?token={IEX_CLOUD_API_KEY}"
-            data = requests.get(url).json()
-            for ticker in ticker_group.split(","):
-                try:
-                    price = data[ticker]["quote"]["latestPrice"]
-                    pe_ratio = data[ticker]["quote"]["peRatio"]
-                    pb_ratio = data[ticker]["advanced-stats"]["priceToBook"]
-                    ps_ratio = data[ticker]["advanced-stats"]["priceToSales"]
-                    enterprise_value = data[ticker]["advanced-stats"]["enterpriseValue"]
-                    ebitda = data[ticker]["advanced-stats"]["EBITDA"]
-                    gross_profit = data[ticker]["advanced-stats"]["grossProfit"]
-                    ev_ebitda_ratio = float(enterprise_value) / float(ebitda)
-                    ev_gp_ratio = float(enterprise_value) / float(gross_profit)
-                except KeyError:
-                    price = np.nan
-                    pe_ratio = np.nan
-                    pb_ratio = np.nan
-                    ps_ratio = np.nan
-                except TypeError:
-                    ev_ebitda_ratio = np.nan
-                    ev_gp_ratio = np.nan
-                
-                row = {
-                    "Ticker": ticker,
-                    "Price": price,
-                    "PE_ratio": pe_ratio,
-                    "PE_percentile": "N/A",
-                    "PB_ratio": pb_ratio,
-                    "PB_percentile": "N/A",
-                    "PS_ratio": ps_ratio,
-                    "PS_percentile": "N/A",
-                    "EV_EBITDA_ratio": ev_ebitda_ratio,
-                    "EV_EBITDA_percentile": "N/A",
-                    "EV_GP_ratio": ev_gp_ratio,
-                    "EV_GP_percentile": "N/A",
-                    "Robust_value_score": "N/A",
-                    "Number_of_stocks_to_buy": "N/A"
-                }
-                self.df = self.df.append(row, ignore_index=True)
-
-    def single_metric_remove_glamour_stocks(self) -> pd.DataFrame:
-        """ determine which stocks to buy based on one metric: PE ratio """
-        if not self.df or len(self.df) == 0:
-            raise ValueError("data is not available")
-
-        # sort on PE ratio in ascending order
-        self.df.sort_values("PE_ratio", ascending = True, inplace = True)
-
-        # remove stocks with negative PE ratio
-        self.df = self.df[self.df["PE_ratio"] > 0]
-
-        # reset indices
-        self.df.reset_index(inplace = True)
-        self.df.drop("index", axis= 1, inplace=True)
-
-        # get the top 50 highest PE ratio  entries
-        self.df = self.df[:50]
-
-        return self.df
-
-    def composite_metric_remove_glamour_stocks(self) -> pd.DataFrame:
-        """ determine which stocks to buy based on a number of metrics: PE ratio, PB ratio, PS ratio, EV/EBITDA and EV/gross profit """
-        if not self.df or len(self.df) == 0:
-            raise ValueError("data is not available")
-
-        # deal with NaN
-        # remove NaN values if the rows containing NaN as a percentage
-        # of the total are 5% or less, else, impute the dataset 
-        percent_na = len(self.df[self.df.isnull().any(axis=1)].index) / len(self.df.index)
-        if percent_na <= 0.05:
-            self.df = self.df.dropna(axis=1, inplace=True)
-        else: #implement mean imputation
-            pass
-
-        # sort on PE ratio in ascending order
-        self.df.sort_values("PE_ratio", ascending = True, inplace = True)
-
-        # remove stocks with negative PE ratio
-        self.df = self.df[self.df["PE_ratio"] > 0]
-
-        # reset indices
-        self.df.reset_index(inplace = True)
-        self.df.drop("index", axis= 1, inplace=True)
-
-        # get the top 50 highest PE ratio  entries
-        self.df = self.df[:50]
-
-        return self.df
-
     @staticmethod
-    def chunks(arr: list, n: int):
-        """Yield successive n-sized chunks from list."""
-        if not arr or not isinstance(arr, list) or not isinstance(n, int) or n <= 0:
-            raise ValueError("Invalid input: arr must be a list and n a positive integer.")
-        for i in range(0, len(arr), n):
-            yield arr[i : i + n]
-    
+    def chunks(lst: List[str], n: int) -> List[List[str]]:
+        """Split list into successive n-sized chunks."""
+        if not lst or n <= 0:
+            raise ValueError("Invalid input: lst must be non-empty list, n a positive integer.")
+        return [lst[i:i + n] for i in range(0, len(lst), n)]
+
+    def initialise_dataframe(self) -> None:
+        """Initialise empty DataFrame for composite screener data."""
+        columns = [
+            "Ticker", "Price", "PE_ratio", "PE_percentile",
+            "PB_ratio", "PB_percentile", "PS_ratio", "PS_percentile",
+            "EV_EBITDA_ratio", "EV_EBITDA_percentile", "EV_GP_ratio",
+            "EV_GP_percentile", "Robust_value_score",
+            "Number_of_shares_to_buy"
+        ]
+        self.df = pd.DataFrame(columns=columns)
+
+    def load_data_from_api(self, composite: bool = False) -> None:
+        """Load stock data from API into DataFrame.
+
+        Args:
+            composite (bool): If True, loads extended metrics.
+        """
+        if not self.stocks:
+            raise ValueError("Stock list is empty; load or set stocks first.")
+
+        if self.df is None or self.df.empty:
+            self.initialise_dataframe()
+
+        rows = []
+        ticker_chunks = self.chunks(self.stocks, 100)
+
+        for chunk in ticker_chunks:
+            tickers_str = ",".join(chunk)
+            url = f"{BASE_URL}/{tickers_str}/quote"
+            if composite:
+                url += ",advanced-stats"
+            url += f"?token={IEX_CLOUD_API_KEY}"
+
+            response = requests.get(url)
+            if response.status_code != 200:
+                raise ConnectionError(f"API request failed with status {response.status_code}")
+
+            data = response.json()
+
+            for ticker in chunk:
+                try:
+                    quote = data[ticker]["quote"]
+                    price = quote.get("latestPrice", np.nan)
+                    pe_ratio = quote.get("peRatio", np.nan)
+
+                    if composite:
+                        stats_adv = data[ticker].get("advanced-stats", {})
+                        pb_ratio = stats_adv.get("priceToBook", np.nan)
+                        ps_ratio = stats_adv.get("priceToSales", np.nan)
+                        ev = stats_adv.get("enterpriseValue", np.nan)
+                        ebitda = stats_adv.get("EBITDA", np.nan)
+                        gross_profit = stats_adv.get("grossProfit", np.nan)
+
+                        ev_ebitda_ratio = (
+                            float(ev) / float(ebitda)
+                            if ebitda not in [None, 0, np.nan] else np.nan
+                        )
+                        ev_gp_ratio = (
+                            float(ev) / float(gross_profit)
+                            if gross_profit not in [None, 0, np.nan] else np.nan
+                        )
+
+                        row = {
+                            "Ticker": ticker,
+                            "Price": price,
+                            "PE_ratio": pe_ratio,
+                            "PE_percentile": np.nan,
+                            "PB_ratio": pb_ratio,
+                            "PB_percentile": np.nan,
+                            "PS_ratio": ps_ratio,
+                            "PS_percentile": np.nan,
+                            "EV_EBITDA_ratio": ev_ebitda_ratio,
+                            "EV_EBITDA_percentile": np.nan,
+                            "EV_GP_ratio": ev_gp_ratio,
+                            "EV_GP_percentile": np.nan,
+                            "Robust_value_score": np.nan,
+                            "Number_of_shares_to_buy": np.nan,
+                        }
+                    else:
+                        row = {
+                            "Ticker": ticker,
+                            "Price": price,
+                            "PE_ratio": pe_ratio,
+                            "Number_of_shares_to_buy": np.nan
+                        }
+                except KeyError:
+                    row = {k: np.nan for k in self.df.columns}
+                    row["Ticker"] = ticker
+
+                rows.append(row)
+
+        self.df = pd.DataFrame(rows)
+
+    def remove_glamour_stocks_single_metric(self) -> pd.DataFrame:
+        """Filter stocks by PE ratio ascending, positive only, top 50."""
+        if self.df is None or self.df.empty:
+            raise ValueError("Data is not loaded.")
+
+        df_filtered = self.df.dropna(subset=["PE_ratio"])
+        df_filtered = df_filtered[df_filtered["PE_ratio"] > 0]
+        df_filtered = df_filtered.sort_values("PE_ratio").head(50).reset_index(drop=True)
+
+        return df_filtered
+
+    def remove_glamour_stocks_composite(self) -> pd.DataFrame:
+        """Filter stocks using composite metrics with NaN handling and ranking.
+
+        Returns:
+            DataFrame with top 50 stocks by composite value score.
+        """
+        if self.df is None or self.df.empty:
+            raise ValueError("Data is not loaded.")
+
+        percent_na = self.df.isnull().any(axis=1).mean()
+        if percent_na <= 0.05:
+            df_clean = self.df.dropna()
+        else:
+            df_clean = self.df.copy()
+            cols_to_impute = [
+                "PE_ratio", "PB_ratio", "PS_ratio", "EV_EBITDA_ratio", "EV_GP_ratio"
+            ]
+            for col in cols_to_impute:
+                if col in df_clean.columns:
+                    df_clean[col].fillna(df_clean[col].mean(), inplace=True)
+
+        df_clean = df_clean[df_clean["PE_ratio"] > 0]
+
+        # Calculate percentile ranks
+        for metric in [
+            "PE_ratio", "PB_ratio", "PS_ratio", "EV_EBITDA_ratio", "EV_GP_ratio"
+        ]:
+            if metric in df_clean.columns:
+                percentile_col = metric.replace("ratio", "percentile")
+                df_clean[percentile_col] = df_clean[metric].rank(pct=True)
+
+        # Average percentile ranks as composite value score; lower is better
+        percentile_cols = [col for col in df_clean.columns if col.endswith("percentile")]
+        df_clean["Robust_value_score"] = df_clean[percentile_cols].mean(axis=1)
+
+        df_final = df_clean.sort_values("Robust_value_score").head(50).reset_index(drop=True)
+
+        return df_final
+
     def portfolio_input(self) -> float:
-        """Prompt user to enter portfolio size and validate the input."""
+        """Prompt user to enter portfolio size with input validation.
+
+        Returns:
+            Float portfolio size entered by user.
+        """
         while True:
-            value = input("Enter the size of your portfolio: \n").strip()
+            value = input("Enter the size of your portfolio: ").strip()
             try:
                 portfolio_size = float(value)
                 if portfolio_size <= 0:
@@ -194,34 +210,49 @@ class QuantitativeValueScreener:
             except ValueError:
                 print("Please enter a valid number.")
 
-    def calculate_number_of_shares_to_buy(self) -> pd.DataFrame:
-        """Calculate number of shares to buy for an equal-weight portfolio."""
+    def calculate_number_of_shares_to_buy(self, equal_weight: bool = True) -> pd.DataFrame:
+        """Calculate number of shares to buy for equal-weight portfolio.
+
+        Args:
+            equal_weight (bool): If True, use filtered composite stocks.
+
+        Returns:
+            DataFrame including number of shares to buy.
+        """
+        if self.df is None or self.df.empty:
+            raise ValueError("Data is not loaded.")
+
+        if equal_weight:
+            top_stocks_df = self.remove_glamour_stocks_composite()
+        else:
+            top_stocks_df = self.df.copy()
+
         portfolio_size = self.portfolio_input()
-        top_stocks_df = self.composite_metric_remove_glamour_stocks()
         position_size = portfolio_size / len(top_stocks_df)
 
         top_stocks_df["Number_of_shares_to_buy"] = top_stocks_df["Price"].apply(
-            lambda price: math.floor(position_size / price) if price and not pd.isna(price) else 0
+            lambda price: math.floor(position_size / price)
+            if price and not pd.isna(price) else 0
         )
         self.df = top_stocks_df
         return self.df
 
     def load_stocks_list(self, path_to_file: str) -> None:
-        """Load list of stock tickers from CSV file (assumed in first column)."""
-        tickers = pd.read_csv(path_to_file)
+        """Load list of stock tickers from CSV file's first column."""
+        tickers = pd.read_csv(path_to_file, usecols=[0])
         self.stocks = tickers.iloc[:, 0].dropna().astype(str).tolist()
 
     def load_csv(self, path_to_file: str) -> pd.DataFrame:
-        """Load data from CSV file into the DataFrame."""
+        """Load DataFrame from CSV file."""
         self.df = pd.read_csv(path_to_file)
         return self.df
 
     def load_excel(self, path_to_file: str) -> pd.DataFrame:
-        """Load data from Excel file into the DataFrame."""
+        """Load DataFrame from Excel file."""
         self.df = pd.read_excel(path_to_file)
         return self.df
 
-    def to_excel(self, path_to_file: str) -> None:
+def to_excel(self, path_to_file: str) -> None:
         """Export DataFrame to an Excel file with formatted columns."""
         with pd.ExcelWriter(path_to_file, engine="xlsxwriter") as writer:
             self.df.to_excel(writer, index=False, sheet_name="Recommended Trades")
@@ -255,6 +286,7 @@ class QuantitativeValueScreener:
                 "border": 1,
             })
 
+            # TODO: implement columns to reflect the composite screener output
             col_formats = {
                 0: string_format,   # Ticker
                 1: currency_format, # Price
@@ -267,8 +299,18 @@ class QuantitativeValueScreener:
                 8: percent_format,  # Three-month_return_percentile
                 9: percent_format,  # One-month_price_return
                 10: percent_format, # One-month_return_percentile
-                11: percent_format, # HQM_score
             }
 
             for idx, fmt in col_formats.items():
                 worksheet.set_column(idx, idx, 25, fmt)
+
+
+if __name__ == "__main__":
+    # Example usage
+    screener = QuantitativeValueScreener()
+    screener.load_stocks_list("stocks.csv")  # Loads stock ticker list
+    screener.load_data_from_api(composite=True)  # Fetch composite data
+    filtered_df = screener.remove_glamour_stocks_composite()
+    screener.df = filtered_df
+    screener.calculate_number_of_shares_to_buy()
+    screener.to_excel("recommended_trades.xlsx")
