@@ -286,19 +286,21 @@ def to_excel(self, path_to_file: str) -> None:
                 "border": 1,
             })
 
-            # TODO: implement columns to reflect the composite screener output
             col_formats = {
                 0: string_format,   # Ticker
                 1: currency_format, # Price
-                2: integer_format,  # Number_of_shares_to_buy
-                3: percent_format,  # One-year_price_return
-                4: percent_format,  # One-year_return_percentile
-                5: percent_format,  # Six-month_price_return
-                6: percent_format,  # Six-month_return_percentile
-                7: percent_format,  # Three-month_price_return
-                8: percent_format,  # Three-month_return_percentile
-                9: percent_format,  # One-month_price_return
-                10: percent_format, # One-month_return_percentile
+                2: integer_format, # PE_ratio
+                3: percent_format, # PE_percentile
+                4: integer_format, # PB_ratio
+                5: percent_format, # PB_percentile
+                6: integer_format, # PS_ratio
+                7: percent_format, # PS_percentile
+                8: integer_format, # EV_EBITDA_ratio
+                9: percent_format, # EV_EBITDA_percentile
+                10: integer_format, # EV_GP_ratio
+                11: percent_format, # EV_GP_percentile
+                12: integer_format, # Robust_value_score
+                13: integer_format, # Number_of_shares_to_buy
             }
 
             for idx, fmt in col_formats.items():
@@ -306,7 +308,6 @@ def to_excel(self, path_to_file: str) -> None:
 
 
 if __name__ == "__main__":
-    # Example usage
     screener = QuantitativeValueScreener()
     screener.load_stocks_list("stocks.csv")  # Loads stock ticker list
     screener.load_data_from_api(composite=True)  # Fetch composite data
