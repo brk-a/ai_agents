@@ -30,3 +30,5 @@
 * they often assign zero probability to unseen word pairs making them brittle without smoothing techniques
 * increasing `n` (to trigrams or higher) improves context capture but leads to computational challenges and data sparsity
 * modern LLMs overcome these limits by using deep learning and attention mechanisms to capture long-range dependencies and richer semantic information for natural text generation
+
+### 1.5 n-grams
