@@ -3,6 +3,7 @@ Class BLM (BigramLanguageModel)
 """
 
 from typing import Union, Callable
+import torch
 
 
 class BigramLanguageModel:
@@ -91,3 +92,21 @@ class BigramLanguageModel:
             return "".join(int_to_string[i] for i in l)
 
         return decode
+
+    def get_data_in_tensor_format(self, path_to_file: str) -> torch.Tensor:
+        """ get_data_in_tensor_format """
+        text = self.open_txt_file(path_to_file)
+        if not text or len(text) == 0:
+            raise ValueError("Arg must be a string")
+        
+        char_list = self.character_level_encoder(text).encode()
+        data = torch.tensor(char_list, dtype=torch.long)
+
+        return data
+
+    def get_train_and_validation_splits(self, tensor: torch.Tensor) -> list[list[str]] | str:
+        """ get_train_and_validation_splits """
+        if not tensor or not isinstance(tensor, torch.Tensor):
+            raise ValueError("Arg must be a tensor")
+        
+        pass
