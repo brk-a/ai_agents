@@ -25,10 +25,17 @@
     
 * this simple approach enables prediction of the next word given the current one
 
-### 1.4 what TF are the practical limits of bigram models for text generation?
+### 1.4. WTF are the practical limits of bigram models for text generation?
 * bigram models are easy to implement but limited because they consider only immediate word pairs, ignoring longer context and linguistic structures
 * they often assign zero probability to unseen word pairs making them brittle without smoothing techniques
 * increasing `n` (to trigrams or higher) improves context capture but leads to computational challenges and data sparsity
 * modern LLMs overcome these limits by using deep learning and attention mechanisms to capture long-range dependencies and richer semantic information for natural text generation
 
-### 1.5 n-grams
+### 1.5 tensors instead of arrays
+* arrays are not scalable; we need more complex but efficient data structures
+* presenting the tensor...
+    - every come accross the following: scalar, vector and matrix?
+    - a scalar can be represented as an `int` or `float`: a single number you can multiply (aka scale) anything by
+    - a vector can be represented as an array: forget the direction bit of a vector for now
+    - a matrix can be represented as a 2D array: a list of lists; a vector made up of vectors
+    - a tensor if a matrix of matrices: a 3D array if you like
