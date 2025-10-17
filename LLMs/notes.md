@@ -32,10 +32,16 @@
 * modern LLMs overcome these limits by using deep learning and attention mechanisms to capture long-range dependencies and richer semantic information for natural text generation
 
 ### 1.5 tensors instead of arrays
-* arrays are not scalable; we need more complex but efficient data structures
+* in computational linguistics and large language models, arrays are often insufficient for handling complex data structures efficiently
 * presenting the tensor...
-    - every come accross the following: scalar, vector and matrix?
-    - a scalar can be represented as an `int` or `float`: a single number you can multiply (aka scale) anything by
-    - a vector can be represented as an array: forget the direction bit of a vector for now
-    - a matrix can be represented as a 2D array: a list of lists; a vector made up of vectors
-    - a tensor if a matrix of matrices: a 3D array if you like
+    - tensors are employed as more scalable and versatile data structures
+* context
+    - a scalar is a single numerical value, such as an integer or a floating-point number, representing a zero-dimensional tensor
+    - a vector is a one-dimensional array of numbers; essentially a list of values without regard to direction for this explanation
+    - matrix is a two-dimensional array: for example, a table of numbers arranged in rows and columns
+* a tensor generalises this concept to three or more dimensions: for instance, a three-dimensional tensor can be envisioned as a *"matrix of matrices"* or a cube of numbers
+    - higher-dimensional tensors extend this pattern to represent even more complex datasets
+* tensors allow more efficient representation and manipulation of multi-dimensional data which is crucial in machine learning frameworks such as TensorFlow and PyTorch
+* in language models, tensors enable operations on batches of data, word embeddings across contexts and multi-layer processing which simple arrays cannot manage efficiently
+
+
