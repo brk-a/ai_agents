@@ -108,5 +108,7 @@ class BigramLanguageModel:
         """ get_train_and_validation_splits """
         if not tensor or not isinstance(tensor, torch.Tensor):
             raise ValueError("Arg must be a tensor")
+
+        train, test = [], []
         
         pass
