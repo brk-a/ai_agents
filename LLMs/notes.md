@@ -31,7 +31,7 @@
 * increasing `n` (to trigrams or higher) improves context capture but leads to computational challenges and data sparsity
 * modern LLMs overcome these limits by using deep learning and attention mechanisms to capture long-range dependencies and richer semantic information for natural text generation
 
-### 1.5 tensors instead of arrays
+### 1.5. tensors instead of arrays
 * in computational linguistics and large language models, arrays are often insufficient for handling complex data structures efficiently
 * presenting the tensor...
     - tensors are employed as more scalable and versatile data structures
@@ -44,4 +44,27 @@
 * tensors allow more efficient representation and manipulation of multi-dimensional data which is crucial in machine learning frameworks such as TensorFlow and PyTorch
 * in language models, tensors enable operations on batches of data, word embeddings across contexts and multi-layer processing which simple arrays cannot manage efficiently
 
+### 1.6. tokenisers
+* tools used in natural language processing (NLP) to split text into smaller units called tokens
+* tokens are the basic building blocks—usually words, subwords or characters—that a language model uses to understand and process language
+* types of tokenisers:
+    - Word Tokenisers &rarr; break sentences into individual words, often splitting on spaces and punctuation
+        - example, "Big data is key" becomes ["Big", "data", "is", "key"].
+    - Character Tokenisers &rarr; split text into single characters, useful for languages or tasks requiring fine granularity
+        - example, "key" becomes ["k", "e", "y"].
+    - Subword Tokenisers &rarr; split words into smaller meaningful pieces (subwords), balancing between word and character tokenisation
+        - they help handle unknown or rare words by breaking them into known parts.
+* tokenisers work by applying rules or algorithms to segment input text
+    - they remove spaces, separate punctuation, and normalise text to prepare it for processing
+    - this converts raw text into structured data that models can analyse for patterns and meaning
+* effective tokenisation improves model performance on tasks like text classification, translation, and generation. It is a fundamental first step in large language models such as GPT
+* tokenisers are the best solution for processing natural language text because they efficiently convert raw, unstructured text into manageable and meaningful units called tokens
+     - this is essential for language models and NLP systems that require structured input to analyse and generate human language effectively
+    - they solve the core problem of textual ambiguity and complexity by breaking text into consistent pieces, such as words, subwords, or characters, allowing models to handle vocabulary systematically
+    - without tokenisation, models would struggle with variable spacing, punctuation, and unseen words
+* tokenisers also optimise performance by enabling shared representations of common subword units
+    - this reduces vocabulary size and helps models generalise better to new words, improving accuracy and efficiency
+* by simplifying text into digestible units, tokenisers are indispensable for training and deploying language models that perform tasks like translation, summarisation, and text generation reliably and at scale
+    - this makes them the best practical solution for bridging human language complexity and machine understanding
 
+### 1.7. train and test splits
