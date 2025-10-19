@@ -68,3 +68,20 @@
     - this makes them the best practical solution for bridging human language complexity and machine understanding
 
 ### 1.7. train and test splits
+* train and test splits refer to dividing a dataset into two parts: one used to train the model (the training set) and one used to evaluate or test the model (the test set)
+     - this division allows us to assess how well the model has learned to generalise beyond the data it trained on
+#### 1.7.1. why TF are they important?
+*  prevent Overfitting: Training on all data without testing might make the model just memorize rather than learn patterns
+*  measure Generalisation: Testing on unseen data gives a realistic estimate of model performance on new inputs
+*  guide Model Improvements: Performance on the test set helps identify whether the model or data needs refinement
+#### 1.7.2. how TF do train and test splits work in bigram models?
+* split the corpus: The text data is randomly or systematically divided, often with about 70-90% for training and 10-30% for testing
+* training set: Used to count unigram and bigram frequencies, from which bigram probabilities are computed
+* test set: Used to evaluate the model’s predictions, such as calculating the probability of sequences or measuring perplexity
+#### 1.7.3. practical aspects
+* random sampling: Ensures the train and test sets are representative of the language
+* no overlap: Test data must be distinct and not used in training to ensure unbiased evaluation
+* evaluation metrics: Besides accuracy, metrics like perplexity help understand model confidence on test data
+#### 1.7.4. simple analogy
+* picture learning new words (training), then taking a quiz (test) on words not explicitly studied
+* this helps check if you really understood the language pattern or just memorised specific words
