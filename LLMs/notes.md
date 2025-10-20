@@ -85,3 +85,79 @@
 #### 1.7.4. simple analogy
 * picture learning new words (training), then taking a quiz (test) on words not explicitly studied
 * this helps check if you really understood the language pattern or just memorised specific words
+### 1.8. premise of a bigram model
+* the bigram model is based on the **Markov assumption** that the probability of a word depends only on the immediately preceding word — not on any earlier words in the sequence
+* this is a simplification of natural language dependencies but provides a tractable way to model language statistically.
+* mathemagically, if we have a sequence of words $$w_1, w_2, \ldots, w_n$$, the joint probability is approximated as:
+
+    $$
+    P(w_1, w_2, \ldots, w_n) \approx P(w_1) \prod_{i=2}^n P(w_i | w_{i-1})
+    $$
+
+* here, $$P(w_i | w_{i-1})$$ is the bigram conditional probability estimated from data
+    - This model only looks one step back, capturing **local context** but ignoring longer-range dependencies
+    - It drastically reduces complexity compared to full joint modelling, making computation efficient
+    - It reflects the notion that language has some sequential structure but is limited in capturing nuances like syntax and semantics beyond pairs
+* the bigram model is often a baseline to understand language statistics or a building block towards more complex models such as trigrams or neural LMs
+### 1.9. inputs and targets
+* tn training a bigram model, the **input** and **target** have the following relationship:
+    - **Input:** Each word $$w_i$$ in the sequence (except the last)
+    - **Target:** The next word $$w_{i+1}$$ that follows the input word
+* example given the sentence **"The cat sat on the mat"**, we prepare training pairs as:
+
+    | Input ($$w_i$$) | Target ($$w_{i+1}$$) |
+    |------------------|-----------------------|
+    | The              | cat                   |
+    | cat              | sat                   |
+    | sat              | on                    |
+    | on               | the                   |
+    | the              | mat                   |
+
+* the model learns probabilities $$P(w_{i+1}|w_i)$$ by counting how often each target word follows each input word in the training corpus
+* mathemagically, if $$V$$ is our vocabulary
+    - inputs and targets are drawn from $$V$$
+    - for each input $$w_i$$, the model's output is a probability distribution over all words $$w \in V$$ representing $$P(w | w_i)$$
+* in practice, when implementing a bigram LM
+    - Inputs are often encoded as indices or one-hot vectors representing words
+    - Targets are the next words to predict
+    - The model parameters are the bigram probabilities stored in a matrix $$B$$ of size $$|V| \times |V|$$ where $$B_{ij} \approx P(w_j | w_i)$$
+* this matrix enables quick lookup of conditional probabilities for prediction or text generation
+
+    ```mermaid
+        graph LR
+            A[w_1: "The"] -->|P(cat | The)| B[w_2: "cat"]
+            B -->|P(sat | cat)| C[w_3: "sat"]
+            C -->|P(on | sat)| D[w_4: "on"]
+            D -->|P(the | on)| E[w_5: "the"]
+            E -->|P(mat | the)| F[w_6: "mat"]
+
+            subgraph Bigram Probability Matrix B
+                direction TB
+                W1[The] --- W2[cat]
+                W1 --- W3[sat]
+                W2 --- W3[sat]
+                W2 --- W4[on]
+                W3 --- W4[on]
+                W3 --- W5[the]
+                W4 --- W5[the]
+                W5 --- W6[mat]
+            end
+    ```
+
+* explanation:
+    - the left chain of nodes shows the input word pointing to its target next word with an associated conditional probability
+    - the "Bigram Probability Matrix" block symbolises the matrix $$B$$ where each row corresponds to an input word (e.g., “The”) and each column corresponds to a possible next word (e.g., “cat,” “sat”)
+    - each cell $$B_{ij}$$ stores the bigram probability $$P(w_j | w_i)$$ estimated from corpus counts
+* matrix form
+    - if vocabulary $$V = \{ \text{The}, \text{cat}, \text{sat}, \text{on}, \text{the}, \text{mat} \}$$, then the bigram matrix viz:
+
+    $$
+    B = \begin{bmatrix}
+    P(The|The) & P(cat|The) & P(sat|The) & \cdots \\
+    P(The|cat) & P(cat|cat) & P(sat|cat) & \cdots \\
+    \vdots & \vdots & \vdots & \ddots
+    \end{bmatrix}
+    $$
+
+* each row sums approximately to 1 (after smoothing), representing a conditional probability distribution over next words.
+
