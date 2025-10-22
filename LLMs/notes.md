@@ -161,3 +161,4 @@
 
 * each row sums approximately to 1 (after smoothing), representing a conditional probability distribution over next words.
 
+### 1.10. batch size hyperparameter
