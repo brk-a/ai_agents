@@ -162,3 +162,26 @@
 * each row sums approximately to 1 (after smoothing), representing a conditional probability distribution over next words.
 
 ### 1.10. batch size hyperparameter
+* important in training language models including bigram-based systems and larger neural models
+* determines the number of training examples processed simultaneously before the model's parameters are updated
+#### 1.10.1. WTF does batch size control?
+* memory usage: a larger batch size requires more memory, as more data points are processed in parallel
+* gradient estimation: affects how the model estimates the gradient during optimisation. larger batches produce a more stable estimate of the true gradient but require more computational resources
+* training stability: larger batches tend to stabilise the training process, reducing the variance of gradient estimates, leading to smoother convergence
+#### 1.10.2. how TF does batch size influence training dynamics?
+* small batch sizes (e.g., 8, 16):
+    - faster updates per iteration, potentially leading to noisier gradient estimates
+    - may help escape local minima, adding beneficial stochasticity
+    - may require more training epochs for convergence
+* large batch sizes (e.g., 128, 256 or higher):
+    - more consistent gradient estimates, leading to more stable updates
+    - faster epoch times given more data processed per step, but each step is computationally intensive
+    - risk of converging to sharp minima, which may generalise less well
+#### 1.10.3. trade-offs and practical considerations
+* the optimal batch size balances computational feasibility with convergence stability
+* modern hardware, like GPUs and TPUs, often set practical upper bounds for batch sizes because of memory constraints
+* techniques like gradient accumulation allow effective training with smaller batch sizes on limited hardware, simulating larger batch effects
+* empirical tuning is essential; too small may slow learning, too large may cause poor generalisation
+#### 1.10.4. in the context of bigram models
+* while classic bigram models often operate with counts and probabilities, batch size is more relevant when employing neural networks or probabilistic models trained via optimisation algorithms such as stochastic gradient descent (SGD)
+* for neural-based language modules, choosing an appropriate batch size directly impacts training efficiency and effectiveness
