@@ -185,3 +185,178 @@
 #### 1.10.4. in the context of bigram models
 * while classic bigram models often operate with counts and probabilities, batch size is more relevant when employing neural networks or probabilistic models trained via optimisation algorithms such as stochastic gradient descent (SGD)
 * for neural-based language modules, choosing an appropriate batch size directly impacts training efficiency and effectiveness
+### 1.11. switching from CPU to CUDA
+* as the scale of data and model complexity grows, even a simple bigram model can benefit from **hardware acceleration**
+* in particular, moving computations from the **CPU (Central Processing Unit)** to the **GPU (Graphics Processing Unit)** using **CUDA (Compute Unified Device Architecture)** can yield significant performance gains when implemented correctly.
+#### 1.11.1. what the actual f is CUDA?
+* a parallel computing platform and programming model developed by **NVIDIA**, allowing general-purpose computations to be executed on GPUs rather than being limited to CPUs
+* conceptually, the CPU is a **few very powerful cores**, while a GPU is **thousands of smaller, simpler cores** designed to perform the same operation on many data elements simultaneously — an architecture ideal for **matrix–tensor operations** that dominate machine learning workloads
+* CUDA exposes the GPU’s parallelism through extensions to programming languages like C++, Python (via PyTorch, TensorFlow, CuPy) and Fortran
+* formally, if a CPU executes operations serially on a dataset $f\{X\}$, the time complexity can be approximated as:
+
+$$
+T_{CPU} = O(N)
+$$
+
+where ( N ) is the number of elements
+
+* in contrast, a CUDA kernel running on a GPU can process ( p ) elements concurrently (where ( p ) is the number of CUDA cores), giving:
+
+$$
+T_{\text{GPU}} = O\left(\frac{N}{p}\right)
+$$
+
+yielding a **speed-up factor** of approximately $ \approx \frac{N}{N/p} = p $, though in practice the benefit is sublinear due to data transfer and synchronisation overheads
+#### 1.11.2. the computational case for GPUs in bigram models
+* even though bigram models are relatively simple, when implemented using **tensorised operations** (as in PyTorch), computations scale quadratically with vocabulary size:
+
+$$
+B \in \mathbb{R}^{|V| \times |V|}
+$$
+
+* for a vocabulary of 50,000 tokens, this matrix contains $ 2.5 \times 10^9 $ elements; matrix operations such as:
+
+$$
+\mathbf{P}_{\text{next}} = \text{softmax}(\mathbf{x} W)
+$$
+
+where $ \mathbf{x} $ is the input tensor and ( W ) the bigram weight matrix, involve dense linear algebra—an area where GPUs excel due to their high **FLOPs (Floating Point Operations per Second)** throughput
+* the computational bottlenecks include:
+    - **Tensor multiplication** – matrix–vector or matrix–matrix operations; highly parallelisable
+    - **Softmax normalisation** – involves exponentiation and division across large vectors; can be GPU-parallelised
+    - **Gradient updates (if training a neural variant)** – backpropagation involves matrix transposes and dot products, also parallelisable
+
+#### 1.11.3. moving from CPU to CUDA in PyTorch
+* in PyTorch, switching from CPU to CUDA is typically a one-line operation, but conceptually it involves changing the device on which tensors are allocated
+* example pseudocode:
+
+    ```python
+        import torch
+
+        # Automatically select device
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # Vocabulary size and bigram weight matrix
+        V = 50000
+        B = torch.randn(V, V, device=device)  # allocate directly on GPU
+
+        # Sample batch of indices
+        inputs = torch.randint(0, V, (64,), device=device)
+        targets = torch.randint(0, V, (64,), device=device)
+
+        # Lookup and compute predictions
+        logits = B[inputs]  # matrix row lookup (GPU)
+        probs = torch.softmax(logits, dim=1)
+        loss = -torch.log(probs[torch.arange(64), targets]).mean()
+
+        loss.backward()  # gradients computed via CUDA kernels
+    ```
+
+* when using the `device` argument, all operations, including forward and backward passes, are executed directly on the GPU using CUDA kernels
+#### 1.11.4. data transfer costs and memory hierarchy
+* while GPUs deliver **massively parallel throughput**, they also introduce new constraints in **data transfer and memory management**
+* the performance advantage can be negated if the model frequently moves data between CPU and GPU.
+
+* **Memory hierarchy (simplified):**
+
+| Memory Type           | Typical Bandwidth | Access Latency | Scope       |
+| --------------------- | ----------------- | -------------- | ----------- |
+| GPU registers         | ~20 TB/s          | <10 ns         | per-thread  |
+| GPU shared memory     | ~5 TB/s           | <100 ns        | per-block   |
+| GPU global memory     | ~1 TB/s           | ~500 ns        | device-wide |
+| CPU main memory (RAM) | ~50–100 GB/s      | ~100 ns        | host        |
+| PCIe bus (CPU–GPU)    | ~16–32 GB/s       | >1 μs          | transfer    |
+
+* **Implication:** minimise host–device transfers. For bigram models, load the corpus, tokeniser, and tensor initialisation once on the GPU, and keep computation there
+#### 1.11.5. numerical precision and stability
+* CUDA supports multiple numeric precisions:
+    - **FP32 (single precision):** default, good balance between speed and accuracy
+    - **FP16 (half precision):** halves memory footprint; doubles throughput on compatible hardware but risks underflow/overflow in small probability computations (e.g. during softmax)
+    - **BF16 (bfloat16):** alternative to FP16 that preserves exponent range, improving stability
+    - **TF32:** hybrid precision used on Ampere GPUs for matrix multiplication acceleration
+* in probabilistic bigram models, the risk of **underflow** is real due to small $ P(w_i | w_j) $ values; it is often numerically safer to work in **log space**:
+
+$$
+\log P(w_2 | w_1) = \log C(w_1, w_2) - \log C(w_1)
+$$
+
+* GPU kernels can handle this transformation efficiently
+#### 1.11.6. parallelisation and stochastic optimisation
+* when training a neuralised bigram model using **stochastic gradient descent (SGD)** or **Adam**, CUDA parallelises the gradient computations across the batch
+* for batch size ( b ), vocabulary size ( V ) and embedding dimension ( d ):
+
+$$
+O(b \times V \times d)
+$$
+
+* operations per iteration are parallelised; this reduces wall-clock time significantly, especially for large ( V ) and ( d )
+* example:
+    * CPU (8 cores): ~50 GFLOPs/s
+    * GPU (RTX 4090): ~80 TFLOPs/s
+    → theoretical **speedup ≈ 1600×** (practical ≈ 30–100× after overheads)
+#### 1.11.7. software engineering principles for GPU migration
+* when migrating to CUDA, adhere to sound engineering practices:
+    - **Device abstraction:** define a `device` variable and pass it consistently through your code: do not hardcode `"cuda:0"`
+    - **Batch computation:** ensure that operations are vectorised; avoid Python loops over tokens
+    - **Profiling and optimisation:** use `torch.cuda.profiler`, `nvprof`, or Nsight Systems to identify kernel bottlenecks
+    - **Memory efficiency:** release unused tensors via `del` and `torch.cuda.empty_cache()`
+    - **Determinism:** some GPU kernels are non-deterministic; set `torch.backends.cudnn.deterministic = True` if reproducibility matters
+#### 1.11.8. probabilistic and statistical considerations
+* moving computation to CUDA does not alter the **probabilistic semantics** of the model—only the numerical performance, however, stochastic training on GPUs can introduce small **floating-point non-determinisms**, potentially affecting repeatability of random seeds
+* in expectation, the estimated conditional probabilities:
+
+$$
+\hat{P}(w_j | w_i) = \frac{C(w_i, w_j)}{C(w_i)}
+$$
+
+remain identical; only the computational path changes
+* GPU acceleration primarily affects:
+    - **Speed of computing counts and normalisations** (when done as batched tensor operations)
+    - **Parallel computation of losses or perplexities** across test batches
+
+#### 1.11.9. illustrative example: CPU vs CUDA timing
+
+    ```python
+        import torch, time
+
+        V = 10000
+        B_cpu = torch.randn(V, V)
+        B_cuda = B_cpu.to("cuda")
+
+        inputs = torch.randint(0, V, (512,))
+        targets = torch.randint(0, V, (512,))
+
+        # CPU timing
+        t0 = time.time()
+        probs_cpu = torch.softmax(B_cpu[inputs], dim=1)
+        loss_cpu = -torch.log(probs_cpu[torch.arange(512), targets]).mean()
+        t_cpu = time.time() - t0
+
+        # CUDA timing
+        torch.cuda.synchronize()
+        t1 = time.time()
+        probs_gpu = torch.softmax(B_cuda[inputs.to("cuda")], dim=1)
+        loss_gpu = -torch.log(probs_gpu[torch.arange(512), targets.to("cuda")]).mean()
+        torch.cuda.synchronize()
+        t_gpu = time.time() - t1
+
+        print(f"CPU: {t_cpu:.4f}s, GPU: {t_gpu:.4f}s, Speed-up: {t_cpu/t_gpu:.1f}×")
+    ```
+
+* typical output on a modern GPU might be:
+
+    ```plaintext
+        CPU: 2.1342s, GPU: 0.0347s, Speed-up: 61.5×
+    ```
+
+#### 1.11.10. summary — from serial to parallel thought
+* switching from CPU to CUDA is not just a hardware migration; it is a **computational paradigm shift** from:
+    - **serial** to **parallel** data processing
+    - **cache-optimised loops** to **vectorised tensor kernels**
+    - **general-purpose control flow** to **mathematical throughput maximisation**
+* for bigram models, CUDA may seem overkill but it lays the foundation for scaling up to **neural language models** where matrix–tensor operations dominate training
+* in statistical terms, CUDA merely preserves the same estimator — but performs it at a rate limited more by **memory bandwidth** than by **algebraic complexity**
+
+> **long story short:** switching from CPU to CUDA turns your bigram model from a statistical toy into a computational experiment in high-throughput probabilistic inference: same maths, different universe
+### 1.12. embedded vectors
+* 
