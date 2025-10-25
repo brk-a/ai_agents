@@ -10,13 +10,35 @@ class BigramLanguageModel:
     """Bigram Language Model class."""
 
     def __init__(self) -> None:
-        pass
+        self.device = torch.device("cpu")
 
     def __str__(self) -> str:
         return "BigramLanguageModel instance"
 
     def __repr__(self) -> str:
         return "BigramLanguageModel()"
+
+    def set_device(self, device_str: str) -> None:
+        """
+        Set the device to 'cpu' or 'cuda'.
+
+        Args:
+            device_str (str): Device string, 'cpu' or 'cuda'.
+        """
+        if device_str not in ("cpu", "cuda"):
+            raise ValueError("Device must be 'cpu' or 'cuda'")
+        if device_str == "cuda" and not torch.cuda.is_available():
+            raise RuntimeError("CUDA is not available")
+        self.device = torch.device(device_str)
+
+    def get_device(self) -> torch.device:
+        """
+        Get the current device.
+
+        Returns:
+            torch.device: The current device.
+        """
+        return self.device
 
     def open_txt_file(self, path_to_file: str) -> str:
         """Open and read text from a .txt file."""
@@ -90,7 +112,7 @@ class BigramLanguageModel:
         return decode
 
     def get_data_in_tensor_format(self, path_to_file: str) -> torch.Tensor:
-        """Load text file and return tensor of encoded characters."""
+        """Load text file and return tensor of encoded characters on the device."""
         text = self.open_txt_file(path_to_file)
         if not text:
             raise ValueError("File is empty or text is invalid")
@@ -98,7 +120,7 @@ class BigramLanguageModel:
         unique_chars = self.get_unique_characters_in_text(text)
         encoder = self.character_level_encoder(unique_chars)
         encoded_text = encoder(text)
-        data = torch.tensor(encoded_text, dtype=torch.long)
+        data = torch.tensor(encoded_text, dtype=torch.long, device=self.device)
 
         return data
 
@@ -110,7 +132,7 @@ class BigramLanguageModel:
             raise ValueError("Argument must be a torch.Tensor")
 
         n = int(split_ratio * len(tensor))
-        train_data = tensor[:n]
-        val_data = tensor[n:]
+        train_data = tensor[:n].to(self.device)
+        val_data = tensor[n:].to(self.device)
 
         return [train_data, val_data]
